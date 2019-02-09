@@ -24,50 +24,46 @@ __author__    = """Morten Knutsen (morten.knutsen@uninett.no)"""
 __copyright__ = """Copyright (C) 2009-2010
 Morten Knutsen <morten.knutsen@uninett.no>
 """
-import matplotlib, scripting
+import matplotlib
+import scripting
+import sys
+import argparse
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="PyMetric Network Simulator")
+    parser.add_argument('topofile',
+                       help='Specify topology file to load')
+    parser.add_argument('--script','-s', help='script file to load')
+    parser.add_argument('--output','-o', help='png output file')
+    args = parser.parse_args()
 
-   import sys
+    infile = args.topofile
 
-   if not len(sys.argv) > 1:
-      print "Please specify topology-file"
-      sys.exit(1)
+    if not args.script and not args.output:
+        # Load interactive shell
+        matplotlib.use("TkAgg")
+        matplotlib.interactive(True)
+        exec('from command import MetricShell')
+        cli = MetricShell(filename=infile)
+        cli.version = __version__
+        cli.cmdloop()
+    elif args.script and args.output:
+        sys.stderr.write("ERROR: --script and --output can't be used together")
+        sys.exit(1)
+    else:
+        # Load script
+        matplotlib.use("cairo")
+        matplotlib.interactive(False)
+        exec('from command import MetricShell')
+        old_stdout = sys.stdout
+        sys.stdout = open("/dev/null", "w")
+        cli = MetricShell(filename=infile)
+        cli.version = __version__
 
-   infile = sys.argv[1]   
-   
-   if not len(sys.argv) > 2:
-      matplotlib.use("TkAgg")
-      exec("from command import MetricShell")
-      cli = MetricShell(filename=infile)
-      cli.version = __version__
-      matplotlib.interactive(True)
-      cli.cmdloop()
-   else:
-      scriptFile = None
-      outpng = None
-      if sys.argv[2] == "-s":
-         if not len(sys.argv) == 4:
-             print "-s requires a script-file"
-             sys.exit(1)
-         else:
-            scriptFile = sys.argv[3]
-      else:
-         outpng = sys.argv[2]
+        if args.output:
+            cli.onecmd("png %s" % args.output)
+            sys.exit(0)
 
-      matplotlib.use("cairo")
-      matplotlib.interactive(False)
-      old_stdout = sys.stdout
-      sys.stdout = open("/dev/null", "w")
-      exec("from command import MetricShell")
-      cli = MetricShell(filename=infile)
-      cli.version = __version__
-
-      if outpng:
-         cli.onecmd("png %s" % outpng)
-         sys.exit(0)
-
-      if scriptFile:
-         se = scripting.ScriptEngine(cli)
-         sys.exit(se.run(scriptFile))
-
+        if args.script:
+            se = scripting.ScriptEngine(cli)
+            sys.exit(se.run(args.script))
